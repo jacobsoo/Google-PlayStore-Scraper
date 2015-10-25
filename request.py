@@ -9,7 +9,7 @@ class Request:
         self.data = None
 
     def _getUrl(self):
-        raise Exception("no implementation")
+        raise NotImplementedError
 
     def _success(self):
         pass
@@ -18,13 +18,16 @@ class Request:
         pass
 
     def download(self, successCallback=lambda obj:{}, errorCallback=lambda obj,e:{}):
+        if self.data is not None:
+            raise Exception("already executed")
         req = urllib2.Request(self._getUrl(), None, self.header)
-        response = urllib2.urlopen(req)
         try:
+            response = urllib2.urlopen(req)
             self.data = response.read()
+        ## TODO only catch specific exception, implement retry for recoverable exceptions
         except Exception as e:
             self._error()
-            successCallback(self, e)
+            errorCallback(self, e)
         else:
             self._success()
             successCallback(self)
@@ -38,6 +41,9 @@ class Request:
 
     def getRequests(self):
         return []
+
+    def toDict(self):
+        raise NotImplementedError
 
     def __eq_(self, other):
         if type(other) is type(self):
@@ -66,15 +72,24 @@ class CategoryRequest(Request):
     def _success(self):
         ## parse page, extract apps
         self._apps = set(CategoryRequest.appParser.findall(self.data))
-        dev = set(CategoryRequest.developerParser.findall(self.data))
-        self._dev = map(urllib.unquote, dev)
-
+        self._dev = set(CategoryRequest.developerParser.findall(self.data))
 
     def getApps(self):
         return self._apps
 
     def getRequests(self):
         return map(AppRequest, self._apps) + map(DeveloperRequest, self._dev)
+
+    def toDict(self):
+        return {'type': self.__class__.__name__, 'category': self.category, 'collection': self.collection}
+
+    @staticmethod
+    def fromDict(obj):
+        if not type(obj) is dict or not obj['type'] == CategoryRequest.__name__:
+            raise ValueError('invalid data')
+        if 'category' not in obj or 'collection' not in obj:
+            raise ValueError('invalid data')
+        return CategoryRequest(obj['category'], obj['collection'])
 
     def __eq__(self, other):
         if type(other) is type(self):
@@ -104,6 +119,17 @@ class DeveloperRequest(Request):
     def getRequests(self):
         return map(AppRequest, self._apps)
 
+    def toDict(self):
+        return {'type': self.__class__.__name__, 'developer': self.developer}
+
+    @staticmethod
+    def fromDict(obj):
+        if not type(obj) is dict or not obj['type'] == DeveloperRequest.__name__:
+            raise ValueError('invalid data')
+        if 'developer' not in obj:
+            raise ValueError('invalid data')
+        return DeveloperRequest(obj['developer'])
+
     def __eq__(self, other):
         if type(other) is type(self):
             return self.developer == other.developer
@@ -120,7 +146,7 @@ class AppRequest(Request):
         self._apps = []
     
     def _getUrl(self):
-        return 'https://play.google.com/store/apps/details?id=%s' % urllib(self.pkgname)
+        return 'https://play.google.com/store/apps/details?id=%s' % urllib.quote(self.pkgname)
 
     def _success(self):
         ## parse similar apps
@@ -131,6 +157,17 @@ class AppRequest(Request):
 
     def getRequests(self):
         return map(AppRequest, self._apps)
+
+    def toDict(self):
+        return {'type': self.__class__.__name__, 'pkgname': self.pkgname}
+
+    @staticmethod
+    def fromDict(obj):
+        if not type(obj) is dict or not obj['type'] == AppRequest.__name__:
+            raise ValueError('invalid data')
+        if 'pkgname' not in obj:
+            raise ValueError('invalid data')
+        return AppRequest(obj['pkgname'])
     
     def __eq__(self, other):
         if type(other) is type(self):
