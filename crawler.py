@@ -41,7 +41,7 @@ if __name__ == '__main__':
     apps = result.AppList(args.o)
 
     ## seeding
-    req = request.CategoryRequest('BUSINESS', 'topselling_free')
+    req = request.CategoryRequest('BUSINESS', 'topselling_free2')
     todo.push(req)
 
     try:
@@ -50,14 +50,22 @@ if __name__ == '__main__':
         next = todo.pop()
         while next is not None:
             ## on exception put back in todo list
-
-            next.download()
-            map(apps.add, next.getApps())
-            for newRequest in next.getRequests():
-                if not seen.contains(newRequest):
-                    todo.push(newRequest)
-                    seen.add(newRequest)
-                    print '%s queued %s' % (time.time(), newRequest)
+            try:
+                next.download()
+            except Exception as e:
+                if next.getTries() == 3:
+                    print '%s dropping: %s - %s' % (time.time(), next, str(e))
+                else:
+                    print '%s retry: %s' % (time.time(), next)
+                    next.incTries()
+                    todo.push(next)
+            else:
+                map(apps.add, next.getApps())
+                for newRequest in next.getRequests():
+                    if not seen.contains(newRequest):
+                        todo.push(newRequest)
+                        seen.add(newRequest)
+                        print '%s queued %s' % (time.time(), newRequest)
             next = todo.pop()
     finally:
         todo.close()

@@ -4,9 +4,10 @@ import re
 
 
 class Request:
-    def __init__(self):
+    def __init__(self, tries):
         self.header = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2227.0 Safari/537.36'}
         self.data = None
+        self._tries = tries
 
     def _getUrl(self):
         raise NotImplementedError
@@ -28,6 +29,7 @@ class Request:
         except Exception as e:
             self._error()
             errorCallback(self, e)
+            raise e
         else:
             self._success()
             successCallback(self)
@@ -45,6 +47,12 @@ class Request:
     def toDict(self):
         raise NotImplementedError
 
+    def incTries(self):
+        self._tries += 1
+
+    def getTries(self):
+        return self._tries
+
     def __eq_(self, other):
         if type(other) is type(self):
             return self._getUrl() == other._getUrl()
@@ -58,8 +66,8 @@ class CategoryRequest(Request):
     appParser = re.compile('class="preview-overlay-container" data-docid="(.+?)"')
     developerParser = re.compile('href="/store/apps/developer\?id=([^"]+)"')
 
-    def __init__(self, category, collection):
-        Request.__init__(self)
+    def __init__(self, category, collection, tries=0):
+        Request.__init__(self, tries)
         self.category = category
         self.collection = collection
         self._apps = []
@@ -81,15 +89,15 @@ class CategoryRequest(Request):
         return map(AppRequest, self._apps) + map(DeveloperRequest, self._dev)
 
     def toDict(self):
-        return {'type': self.__class__.__name__, 'category': self.category, 'collection': self.collection}
+        return {'type': self.__class__.__name__, 'category': self.category, 'collection': self.collection, 'tries': self.getTries()}
 
     @staticmethod
     def fromDict(obj):
         if not type(obj) is dict or not obj['type'] == CategoryRequest.__name__:
             raise ValueError('invalid data')
-        if 'category' not in obj or 'collection' not in obj:
+        if 'category' not in obj or 'collection' not in obj or 'tries' not in obj:
             raise ValueError('invalid data')
-        return CategoryRequest(obj['category'], obj['collection'])
+        return CategoryRequest(obj['category'], obj['collection'], obj['tries'])
 
     def __eq__(self, other):
         if type(other) is type(self):
@@ -101,8 +109,9 @@ class CategoryRequest(Request):
 
 
 class DeveloperRequest(Request):
-    def __init__(self, developer):
-        Request.__init__(self)
+    def __init__(self, developer, tries=0):
+        Request.__init__(self, tries)
+        self._tries = 0
         self.developer = developer
         self._apps = []
 
@@ -120,13 +129,13 @@ class DeveloperRequest(Request):
         return map(AppRequest, self._apps)
 
     def toDict(self):
-        return {'type': self.__class__.__name__, 'developer': self.developer}
+        return {'type': self.__class__.__name__, 'developer': self.developer, 'tries': self.getTries()}
 
     @staticmethod
     def fromDict(obj):
         if not type(obj) is dict or not obj['type'] == DeveloperRequest.__name__:
             raise ValueError('invalid data')
-        if 'developer' not in obj:
+        if 'developer' not in obj or 'tries' not in obj:
             raise ValueError('invalid data')
         return DeveloperRequest(obj['developer'])
 
@@ -140,8 +149,8 @@ class DeveloperRequest(Request):
 
 
 class AppRequest(Request):
-    def __init__(self, pkgname):
-        Request.__init__(self)
+    def __init__(self, pkgname, tries=0):
+        Request.__init__(self, tries)
         self.pkgname = pkgname
         self._apps = []
     
@@ -159,13 +168,13 @@ class AppRequest(Request):
         return map(AppRequest, self._apps)
 
     def toDict(self):
-        return {'type': self.__class__.__name__, 'pkgname': self.pkgname}
+        return {'type': self.__class__.__name__, 'pkgname': self.pkgname, 'tries': self.getTries()}
 
     @staticmethod
     def fromDict(obj):
         if not type(obj) is dict or not obj['type'] == AppRequest.__name__:
             raise ValueError('invalid data')
-        if 'pkgname' not in obj:
+        if 'pkgname' not in obj or 'tries' not in obj:
             raise ValueError('invalid data')
         return AppRequest(obj['pkgname'])
     
