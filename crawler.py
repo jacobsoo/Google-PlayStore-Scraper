@@ -41,7 +41,7 @@ if __name__ == '__main__':
     apps = result.AppList(args.o)
 
     ## seeding
-    req = request.CategoryRequest('BUSINESS', 'topselling_free2')
+    req = request.CategoryRequest('BUSINESS', 'topselling_free')
     todo.push(req)
 
     try:

@@ -12,6 +12,10 @@ class Request:
     def _getUrl(self):
         raise NotImplementedError
 
+    def _getPostData(self):
+        ## make GET with no data the default
+        return None
+
     def _success(self):
         pass
 
@@ -21,7 +25,12 @@ class Request:
     def download(self, successCallback=lambda obj:{}, errorCallback=lambda obj,e:{}):
         if self.data is not None:
             raise Exception("already executed")
-        req = urllib2.Request(self._getUrl(), None, self.header)
+        url = self._getUrl()
+        postdata = self._getPostData()
+        if postdata is not None:
+            postdata = urllib.urlencode(postdata)
+
+        req = urllib2.Request(url, postdata, self.header)
         try:
             response = urllib2.urlopen(req)
             self.data = response.read()
@@ -66,16 +75,27 @@ class CategoryRequest(Request):
     appParser = re.compile('class="preview-overlay-container" data-docid="(.+?)"')
     developerParser = re.compile('href="/store/apps/developer\?id=([^"]+)"')
 
-    def __init__(self, category, collection, tries=0):
+    def __init__(self, category, collection, index=0, tries=0):
         Request.__init__(self, tries)
         self.category = category
         self.collection = collection
         self._apps = []
         self._dev = []
+        self._index = index
+        self._step = 60
 
 
     def _getUrl(self):
         return 'https://play.google.com/store/apps/category/%s/collection/%s?authuser=0' % (urllib.quote(self.category), urllib.quote(self.collection))
+
+    def _getPostData(self):
+        # our parameters
+        params = {'start': self._index,
+                  'num': self._step,
+                  'numChildren': '0',
+                  'ipf': '1',
+                  'xhr': '1' }
+        return params
 
     def _success(self):
         ## parse page, extract apps
@@ -86,18 +106,21 @@ class CategoryRequest(Request):
         return self._apps
 
     def getRequests(self):
-        return map(AppRequest, self._apps) + map(DeveloperRequest, self._dev)
+        todo = map(AppRequest, self._apps) + map(DeveloperRequest, self._dev)
+        if len(self._apps) > 0:
+            todo += [CategoryRequest(self.category, self.collection, self._index+self._step)]
+        return todo
 
     def toDict(self):
-        return {'type': self.__class__.__name__, 'category': self.category, 'collection': self.collection, 'tries': self.getTries()}
+        return {'type': self.__class__.__name__, 'category': self.category, 'collection': self.collection, 'tries': self.getTries(), 'index': self._index}
 
     @staticmethod
     def fromDict(obj):
         if not type(obj) is dict or not obj['type'] == CategoryRequest.__name__:
             raise ValueError('invalid data')
-        if 'category' not in obj or 'collection' not in obj or 'tries' not in obj:
+        if  'category' not in obj or 'collection' not in obj or 'tries' not in obj or 'index' not in obj:
             raise ValueError('invalid data')
-        return CategoryRequest(obj['category'], obj['collection'], obj['tries'])
+        return CategoryRequest(obj['category'], obj['collection'], obj['index'], obj['tries'])
 
     def __eq__(self, other):
         if type(other) is type(self):
@@ -105,7 +128,7 @@ class CategoryRequest(Request):
         return False
 
     def __repr__(self):
-        return self.__class__.__name__+'("%s", "%s")' % (self.category, self.collection)
+        return self.__class__.__name__+'("%s", "%s", %i)' % (self.category, self.collection, self._index)
 
 
 class DeveloperRequest(Request):
