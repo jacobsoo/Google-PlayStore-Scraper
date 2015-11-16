@@ -3,6 +3,7 @@ import argparse
 import json
 import time
 import urllib2
+from itertools import product
 
 import request
 import result
@@ -39,11 +40,70 @@ if __name__ == '__main__':
     todo = result.RequestQueue(os.path.join(args.t, 'todo'), marshal, unmarshal)
     seen = result.RequestSet(os.path.join(args.t, 'seen'), marshal, unmarshal)
     apps = result.AppList(args.o)
-
-    ## seeding
-    req = request.CategoryRequest('BUSINESS', 'topselling_free')
-    todo.push(req)
-
+    szCollection = ['topselling_free',
+                'topselling_paid',
+                'topselling_new_free',
+                'topselling_new_paid',
+                'topgrossing',
+                'movers_shakers']
+    szCategory = ['APP_WALLPAPER'
+                'APP_WIDGETS',
+                'BOOKS_AND_REFERENCE',
+                'BUSINESS',
+                'COMICS',
+                'COMMUNICATION',
+                'EDUCATION',
+                'ENTERTAINMENT',
+                'FAMILY',
+                'FAMILY_ACTION',
+                'FAMILY_BRAINGAMES',
+                'FAMILY_CREATE',
+                'FAMILY_EDUCATION',
+                'FAMILY_MUSICVIDEO',
+                'FAMILY_PRETEND',
+                'FINANCE',
+                'GAME',
+                'GAME_ACTION',
+                'GAME_ADVENTURE',
+                'GAME_ARCADE',
+                'GAME_BOARD',
+                'GAME_CARD',
+                'GAME_CASINO',
+                'GAME_CASUAL',
+                'GAME_EDUCATIONAL',
+                'GAME_MUSIC',
+                'GAME_PUZZLE',
+                'GAME_RACING',
+                'GAME_ROLE_PLAYING',
+                'GAME_SIMULATION',
+                'GAME_SPORTS',
+                'GAME_STRATEGY',
+                'GAME_TRIVIA',
+                'GAME_WORD',
+                'HEALTH_AND_FITNESS',
+                'LIBRARIES_AND_DEMO',
+                'LIFESTYLE',
+                'MEDIA_AND_VIDEO',
+                'MEDICAL',
+                'MUSIC_AND_AUDIO',
+                'NEWS_AND_MAGAZINES',
+                'PERSONALIZATION',
+                'PHOTOGRAPHY',
+                'PRODUCTIVITY',
+                'SHOPPING',
+                'SOCIAL',
+                'SPORTS',
+                'TOOLS',
+                'TRANSPORTATION',
+                'TRAVEL_AND_LOCAL',
+                'WEATHER',
+                ]
+    for (col, cat) in product(szCollection, szCategory):
+        ## seeding
+        req = request.CategoryRequest(cat, col)
+        print req
+        todo.push(req)
+    
     try:
         ## crawling
         ## TODO move to threads
