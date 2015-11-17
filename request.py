@@ -132,18 +132,22 @@ class CategoryRequest(Request):
 
 
 class DeveloperRequest(Request):
+    appParser = re.compile('class="preview-overlay-container" data-docid="(.+?)"')
+    developerParser = re.compile('href="/store/apps/developer\?id=([^"]+)"')
+
     def __init__(self, developer, tries=0):
         Request.__init__(self, tries)
         self._tries = 0
         self.developer = developer
         self._apps = []
+        self._dev = []
 
     def _getUrl(self):
         return 'https://play.google.com/store/apps/developer?id=%s' % urllib.quote(self.developer)
 
     def _success(self):
-        ## parse
-        pass
+        self._apps = set(DeveloperRequest.appParser.findall(self.data))
+        self._dev = set(DeveloperRequest.developerParser.findall(self.data))
 
     def getApps(self):
         return self._apps
@@ -172,17 +176,22 @@ class DeveloperRequest(Request):
 
 
 class AppRequest(Request):
+    appParser = re.compile('class="preview-overlay-container" data-docid="(.+?)"')
+    developerParser = re.compile('href="/store/apps/developer\?id=([^"]+)"')
+    categoryParser = re.compile('<span itemprop="genre">([^<]+)</span>')
+    
     def __init__(self, pkgname, tries=0):
         Request.__init__(self, tries)
         self.pkgname = pkgname
         self._apps = []
+        self._dev = []
     
     def _getUrl(self):
         return 'https://play.google.com/store/apps/details?id=%s' % urllib.quote(self.pkgname)
 
     def _success(self):
-        ## parse similar apps
-        pass
+        self._apps = set(AppRequest.appParser.findall(self.data))
+        self._dev = set(AppRequest.developerParser.findall(self.data))
 
     def getApps(self):
         return self._apps
